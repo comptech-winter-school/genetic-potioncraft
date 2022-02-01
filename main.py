@@ -179,7 +179,7 @@ we trained a computer using Genetic Algorithms to predict the
 
     Y = POTION QUALITY
 
-Our symbolic regression process found the following equation offers our best prediction:
+Our logistic regression process found the following equation offers our best prediction:
 
 '''
 
