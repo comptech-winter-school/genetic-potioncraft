@@ -3,9 +3,42 @@ import operator
 from deap import creator, base, tools
 import pandas as pd
 import numpy as np
+import sklearn as sk
+from sklearn.linear_model import LogisticRegression
+
+RANDOM_SEED = 42
+
+features, target = pd.read_csv("C:\Users\Stepa\OneDrive\Рабочий стол\\vehicleNorm.csv").iloc[:,1:-1],\
+                   pd.read_csv("C:\Users\Stepa\OneDrive\Рабочий стол\\vehicleNorm.csv").iloc[:, -1]
+
+print("~~~~~~~~~~~~FEATURES~~~~~~~~~~~~~~~~"
+print(features)
+print("~~~~~~~~~~~~~TARGET~~~~~~~~~~~~~~~~~")
+print(target)
+
+X_train, X_test, y_train, y_test = sk.model_selection.train_test_split(features, target,
+                                                    test_size=0.05,
+                                                    random_state=RANDOM_SEED)
+
+lr = LogisticRegression()
+lr.fit(X_train, y_train)
+pred = lr.predict(X_test)
+accuracy = sk.metrics.accuracy_score(y_test, pred)
+
+print("~~~~~~~~~~~~~X TRAIN~~~~~~~~~~~~~~~~~")
+print(X_train)
+print("~~~~~~~~~~~~~Y TRAIN~~~~~~~~~~~~~~~~~")
+print(y_train)
+print("~~~~~~~~~~~~~X TEST~~~~~~~~~~~~~~~~~~")
+print(X_test)
+print("~~~~~~~~~~~~~Y TEST~~~~~~~~~~~~~~~~~")
+print(y_test)
+print("~~~~~~~~~~~~~ACCURACY~~~~~~~~~~~~~~~~~")
+print(accuracy)
+print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
 
 
-pset = gep.PrimitiveSet('main', input_names=['x', 'y'])
+pset = gep.PrimitiveSet('main', input_names=['f1', 'f2'])
 pset.add_function(max, 2)
 pset.add_function(operator.add, 2)
 pset.add_function(operator.mul, 2)
@@ -27,17 +60,12 @@ toolbox.register('compile', gep.compile_, pset=pset)
 
 
 def evaluate(individual):
-    func = toolbox.compile(individual)
-    # inserting x and y into func and
-    # compute the fitness of this individual
-    # ....
-    return fitness,
+
+    return fitness
 
 
 toolbox.register('evaluate', evaluate)
-
-
-toolbox.register('select', tools.selRoulette)
+toolbox.register('select', tools.selTournament)
 
 ## general mutations whose aliases start with 'mut'
 # We can specify the probability for an operator with the .pbs property
