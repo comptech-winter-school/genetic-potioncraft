@@ -1,18 +1,17 @@
-from deap import creator, base, tools, gp, algorithms
+from deap import creator, base, tools
 
 import geppy as gep
 
 import sklearn as sk
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.preprocessing import StandardScaler
 
 import random
 import operator
-import math
 
 import numpy as np
 import pandas as pd
-import datetime
 
 from IPython.display import Image
 
@@ -21,83 +20,38 @@ from matplotlib import pyplot
 from sympy import *
 
 
-def protected_div(x1, x2):
+def protected_div(x1, x2):  # we exclude division by zero
     if abs(x2) < 1e-6:
         return 1
     return x1 / x2
 
-def calculate_best_model_output(model, *args):
-    # pass in a string view of the "model" as str(symplified_best)
-    # this string view of the equation may reference any of the other inputs, AT, V, AP, RH we registered
-    # we then use eval of this string to calculate the answer for these inputs
-    return eval(model)
+
+def protected_mod(x1, x2):
+    if abs(x2) < 1e-6:
+        return 1
+    return x1 % x2
 
 
-RANDOM_SEED = 42
-random.seed(RANDOM_SEED)
-DATAFRAME_NAME = "phpMD2hR6.csv"
-HEAD = 7  # head length
-QUANTITY_OF_GENES = 2  # number of genes in a chromosome
-RNC_LENGTH = 10  # length of the RNC array
-ENABLE_LINEAR_SCALING = False
-POPULATION = 120
-GENERATIONS = 50
-champs = 3
+def protected_exp(x):
+    if x > 7:
+        return 1
+    return np.exp(x)
 
-dataframe = pd.read_csv(f"datasets\{DATAFRAME_NAME}")
-print("~~~~~~~~~~~~~~~~~~DATAFRAME~~~~~~~~~~~~~~~~~~")
-print(dataframe)
 
-features, target = dataframe.iloc[:, :-1], dataframe.iloc[:, -1]
-
-print("~~~~~~~~~~~~~~~~~~FEATURES~~~~~~~~~~~~~~~~~~")
-print(features)
-print("~~~~~~~~~~~~~~~~~~TARGET~~~~~~~~~~~~~~~~~~")
-print(target)
-print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
-
-for i, feature in enumerate(features.columns.values, start=1):
-    features.rename(columns={feature: f"X{i}"}, inplace=True)
-print(features)
-
-x_train, x_test, y_train, y_test = sk.model_selection.train_test_split(features, target,
-                                                                       test_size=0.3,
-                                                                       random_state=RANDOM_SEED)
-
-pset = gep.PrimitiveSet('Main', input_names=features.columns.values)
-
-pset.add_function(operator.add, 2)
-pset.add_function(operator.sub, 2)
-pset.add_function(operator.mul, 2)
-pset.add_function(protected_div, 2)
-pset.add_function(operator.mod, 2)
-pset.add_function(np.exp, 1)
-pset.add_function(np.log, 1)
-pset.add_rnc_terminal()
-
-creator.create("FitnessMax", base.Fitness, weights=(1,))
-creator.create("Individual", gep.Chromosome, fitness=creator.FitnessMax)
-
-toolbox = gep.Toolbox()
-toolbox.register('rnc_gen', random.randint, a=-10, b=10)
-toolbox.register('gene_gen', gep.GeneDc, pset=pset, head_length=HEAD, rnc_gen=toolbox.rnc_gen,
-                 rnc_array_length=RNC_LENGTH)
-toolbox.register('individual', creator.Individual, gene_gen=toolbox.gene_gen, n_genes=QUANTITY_OF_GENES,
-                 linker=operator.add)
-toolbox.register("population", tools.initRepeat, list, toolbox.individual)
-
-# compile utility: which translates an individual into an executable function (Lambda)
-toolbox.register('compile', gep.compile_, pset=pset)
+def protected_ln(x):
+    if x > 300000:
+        return 1
+    return np.exp(x)
 
 
 def evaluate(individual):
-    func = toolbox.compile(individual)
-    x_new_train = np.array(list(map(func, *[x_train[f"{x}"] for x in x_train.columns.values])))
+    func = toolbox.compile(individual)  # converting a tree to an expression
+    x_new_train = np.array(list(map(func, *[x_train[f"{x}"] for x in x_train.columns.values])))  # substituting values
     x_new_test = np.array(list(map(func, *[x_test[f"{x}"] for x in x_test.columns.values])))
-    lr = LogisticRegression()
+    lr = LogisticRegression()                                   # launching the model
     lr.fit(np.column_stack([x_train, x_new_train]), y_train)
     pred = lr.predict(np.column_stack([x_test, x_new_test]))
-    accuracy = sk.metrics.accuracy_score(y_test, pred)
+    accuracy = sk.metrics.accuracy_score(y_test, pred)          # evaluating the accuracy
     return accuracy,
 
 
@@ -125,13 +79,80 @@ def evaluate(individual):
 #     return np.mean((Y - individual.b) ** 2),
 
 
+def calculate_best_model_output(model, *args):
+    # pass in a string view of the "model" as str(symplified_best)
+    # this string view of the equation may reference any of the other inputs, AT, V, AP, RH we registered
+    # we then use eval of this string to calculate the answer for these inputs
+    return eval(model)
+
+
+RANDOM_SEED = 42                    # CONSTANTS
+random.seed(RANDOM_SEED)
+DATAFRAME_NAME = "phpMD2hR6.csv"
+HEAD = 7
+QUANTITY_OF_GENES = 2
+RNC_LENGTH = 10
+ENABLE_LINEAR_SCALING = False
+POPULATION = 120
+GENERATIONS = 50
+QUANTITY_OF_BEST_INDIVIDS = 3
+
+dataframe = pd.read_csv(f"datasets\{DATAFRAME_NAME}")   # set dataframe
+print("~~~~~~~~~~~~~~~~~~DATAFRAME~~~~~~~~~~~~~~~~~~")
+print(dataframe)
+
+features, target = dataframe.iloc[:, :-1], dataframe.iloc[:, -1]    # separate the features from the target
+
+print("~~~~~~~~~~~~~~~~~~FEATURES~~~~~~~~~~~~~~~~~~")
+print(features)
+print("~~~~~~~~~~~~~~~~~~TARGET~~~~~~~~~~~~~~~~~~")
+print(target)
+print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+
+for i, feature in enumerate(features.columns.values, start=1):  # rename features
+    features.rename(columns={feature: f"X{i}"}, inplace=True)
+print(features)
+
+x_train, x_test, y_train, y_test = sk.model_selection.train_test_split(features, target,  # create train and test sets
+                                                                       test_size=0.3,
+                                                                       random_state=RANDOM_SEED)
+
+
+# creating tree sample, primitives, classes, functions
+
+pset = gep.PrimitiveSet('Main', input_names=features.columns.values)
+
+pset.add_function(operator.add, 2)
+pset.add_function(operator.sub, 2)
+pset.add_function(operator.mul, 2)
+pset.add_function(protected_div, 2)
+pset.add_function(protected_mod, 2)
+pset.add_function(protected_exp, 1)
+pset.add_function(protected_ln, 1)
+pset.add_rnc_terminal()
+
+creator.create("FitnessMax", base.Fitness, weights=(1,))
+creator.create("Individual", gep.Chromosome, fitness=creator.FitnessMax)
+
+toolbox = gep.Toolbox()
+toolbox.register('rnc_gen', random.randint, a=-10, b=10)
+toolbox.register('gene_gen', gep.GeneDc, pset=pset, head_length=HEAD, rnc_gen=toolbox.rnc_gen,
+                 rnc_array_length=RNC_LENGTH)
+toolbox.register('individual', creator.Individual, gene_gen=toolbox.gene_gen, n_genes=QUANTITY_OF_GENES,
+                 linker=operator.add)
+toolbox.register("population", tools.initRepeat, list, toolbox.individual)
+
+# compile utility: which translates an individual into an executable function (Lambda)
+toolbox.register('compile', gep.compile_, pset=pset)
+
+
 if ENABLE_LINEAR_SCALING:
     pass    # toolbox.register('evaluate', evaluate_ls)
 else:
     toolbox.register('evaluate', evaluate)
 
 toolbox.register('select', tools.selTournament, tournsize=3)
-# 1. general operators
+
 toolbox.register('mut_uniform', gep.mutate_uniform, pset=pset, ind_pb=0.05, pb=1)
 toolbox.register('mut_invert', gep.invert, pb=0.1)
 toolbox.register('mut_is_transpose', gep.is_transpose, pb=0.1)
@@ -140,13 +161,13 @@ toolbox.register('mut_gene_transpose', gep.gene_transpose, pb=0.1)
 toolbox.register('cx_1p', gep.crossover_one_point, pb=0.3)
 toolbox.register('cx_2p', gep.crossover_two_point, pb=0.2)
 toolbox.register('cx_gene', gep.crossover_gene, pb=0.1)
-# 2. Dc-specific operators
+
 toolbox.register('mut_dc', gep.mutate_uniform_dc, ind_pb=0.05, pb=1)
 toolbox.register('mut_invert_dc', gep.invert_dc, pb=0.1)
 toolbox.register('mut_transpose_dc', gep.transpose_dc, pb=0.1)
-# for some uniform mutations, we can also assign the ind_pb a string to indicate our expected number of point mutations in an individual
+
 toolbox.register('mut_rnc_array_dc', gep.mutate_rnc_array_dc, rnc_gen=toolbox.rnc_gen, ind_pb='0.5p')
-toolbox.pbs['mut_rnc_array_dc'] = 1  # we can also give the probability via the pbs property
+toolbox.pbs['mut_rnc_array_dc'] = 1
 
 stats = tools.Statistics(key=lambda ind: ind.fitness.values[0])
 stats.register("avg", np.mean)
@@ -154,15 +175,13 @@ stats.register("min", np.min)
 stats.register("max", np.max)
 
 pop = toolbox.population(n=POPULATION)
-hof = tools.HallOfFame(champs)  # only record the best three individuals ever found in all generations
+hof = tools.HallOfFame(QUANTITY_OF_BEST_INDIVIDS)
 
 # start evolution
 pop, log = gep.gep_simple(pop, toolbox, n_generations=GENERATIONS, n_elites=1,
                           stats=stats, hall_of_fame=hof, verbose=True)
 
-print(hof[0])
 
-# print the best symbolic regression we found:
 best_ind = hof[0]
 symplified_best = gep.simplify(best_ind)
 
