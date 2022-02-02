@@ -7,11 +7,13 @@ import sklearn as sk
 from sklearn.linear_model import LogisticRegression
 
 RANDOM_SEED = 42
+dataframe = pd.read_csv("datasets\\phpMD2hR6.csv")
+print(dataframe)
 
-features, target = pd.read_csv("C:\Users\Stepa\OneDrive\Рабочий стол\\vehicleNorm.csv").iloc[:,1:-1],\
-                   pd.read_csv("C:\Users\Stepa\OneDrive\Рабочий стол\\vehicleNorm.csv").iloc[:, -1]
+features, target = pd.read_csv("datasets\\vehicleNorm.csv").iloc[:, :-1],\
+                    pd.read_csv("datasets\\vehicleNorm.csv").iloc[:, -1]
 
-print("~~~~~~~~~~~~FEATURES~~~~~~~~~~~~~~~~"
+print("~~~~~~~~~~~~FEATURES~~~~~~~~~~~~~~~~")
 print(features)
 print("~~~~~~~~~~~~~TARGET~~~~~~~~~~~~~~~~~")
 print(target)
