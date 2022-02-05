@@ -43,6 +43,5 @@
 Новосибирский Исследовательский центр
 ООО "Техкомпания Хуавей"
 
-[Telegram](https://t.me/rdvnkt),
-[e-mail](rdvnkt@yandex.ru)
+[Telegram](https://t.me/rdvnkt)
 
