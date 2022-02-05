@@ -8,6 +8,10 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import mean_squared_error
 from sklearn.metrics import accuracy_score
 from sklearn.preprocessing import StandardScaler
+from matplotlib import pyplot as plt
+from sympy import *
+import sympy as sp
+from sklearn.metrics import mean_squared_error, r2_score
 
 
 class Potion:
@@ -17,6 +21,7 @@ class Potion:
         self.model = ml_model
         self.saved_model = None
         self.best_ind = None
+        self.log = None
         self.head = head
         self.genes_quantity = genes_q
         self.rnc_len = rnc_len
@@ -123,19 +128,19 @@ class Potion:
         func = self.toolbox.compile(self.best_ind)  # converting a tree to an expression
         x_new_train = np.array(
             list(map(func, *[self.__dataX[0][f"{x}"] for x in self.__dataX[0].columns.values])))  # substituting values
-        x_new_test = np.array(list(map(func, *[self.__dataX[1][f"{x}"] for x in self.__dataX[1].columns.values])))
 
         x_new_train = x_new_train.reshape(-1, 1)
         transformer = StandardScaler().fit(x_new_train)
         x_new_train = transformer.transform(x_new_train)
         x_new_train = x_new_train.reshape(-1, 1)
 
-        x_new_test = x_new_test.reshape(-1, 1)
-        x_new_test = transformer.transform(x_new_test)
-
         ml = self.model  # launching the model
         ml.fit(np.column_stack([self.__dataX[0], x_new_train]), self.__dataY[0], **self.__ml_args)
         self.saved_model = ml
+        self.log = log
+
+        print("Mean squared error: %.2f" % mean_squared_error(y_test, self.predict(x_test)))
+        print("R2 score : %.2f" % r2_score(y_test, self.predict(x_test)))
         return pop, log, hof
 
     def __evaluate(self, individual):
@@ -165,5 +170,32 @@ class Potion:
         data_transformed = np.array(
             list(map(func, *[data[f"{x}"] for x in data.columns.values])))  # substituting values
         data_transformed = data_transformed.reshape(-1, 1)
+
         return self.saved_model.predict(np.column_stack([data, data_transformed]))
 
+    def visualize(self):
+        val_av = []
+        for i in range(len(self.log)):
+            val_av.append(self.log[i]['avg'])
+
+        val_max = []
+        for i in range(len(self.log)):
+            val_max.append(self.log[i]['max'])
+
+        plt.figure()
+
+        plt.subplot(2, 1, 1)
+        plt.plot(range(self.generations+1), val_av, label='average', color='green')
+        plt.ylabel('accuracy')
+        plt.title("Population Accuracy Change")
+        plt.legend();
+
+        plt.subplot(2, 1, 2)
+        plt.plot(range(self.generations+1), val_max, label='maximum', color='red')
+        plt.xlabel('number of generations')
+        plt.ylabel('accuracy')
+        plt.legend();
+        plt.savefig('accuracy_plot.png')
+
+        rename_labels = {'add': '+', 'sub': '-', 'mul': '*', '__protected_div': '/', '__protected_ln': 'ln', '__protected_mod': '%', '__protected_exp': 'exp'}
+        gep.export_expression_tree(self.best_ind, rename_labels, 'numerical_expression_tree.png')
