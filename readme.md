@@ -39,9 +39,6 @@
 * Новикова Валентина - Технический писатель
 
 ## Куратор
-Радеев Никита Андреевич, Machine Learning Engineer,
+[Радеев Никита Андреевич](https://t.me/rdvnkt), Machine Learning Engineer,
 Новосибирский Исследовательский центр
 ООО "Техкомпания Хуавей"
-
-[Telegram](https://t.me/rdvnkt)
-
