@@ -6,6 +6,8 @@ import sklearn as sk
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import RobustScaler
+from sklearn.preprocessing import MinMaxScaler
 
 import random
 import operator
@@ -18,65 +20,58 @@ from IPython.display import Image
 from matplotlib import pyplot
 
 from sympy import *
+import sympy as sp
+import math
 
 
 def protected_div(x1, x2):  # we exclude division by zero
-    if abs(x2) < 1e-6:
+    try:
+        x1 / x2
+    except ZeroDivisionError:
         return 1
     return x1 / x2
 
 
 def protected_mod(x1, x2):
-    if abs(x2) < 1e-6:
+    try:
+        x1 % x2
+    except ZeroDivisionError:
         return 1
     return x1 % x2
 
 
 def protected_exp(x):
-    if x > 7:
+    if x > 10 or abs(x) < 1e6:
         return 1
-    return np.exp(x)
+    return math.exp(x)
 
 
 def protected_ln(x):
-    if x > 300000:
-        return 1
-    return np.exp(x)
+    if x < 0:
+        x *= -1
+    if x == 0:
+        x = 1
+    return math.log(x)
 
 
 def evaluate(individual):
     func = toolbox.compile(individual)  # converting a tree to an expression
     x_new_train = np.array(list(map(func, *[x_train[f"{x}"] for x in x_train.columns.values])))  # substituting values
     x_new_test = np.array(list(map(func, *[x_test[f"{x}"] for x in x_test.columns.values])))
-    lr = LogisticRegression()                                   # launching the model
+    
+    x_new_train = x_new_train.reshape(-1, 1)
+    transformer = StandardScaler().fit(x_new_train)
+    x_new_train = transformer.transform(x_new_train)
+    x_new_train = x_new_train.reshape(-1, 1)
+    
+    x_new_test = x_new_test.reshape(-1, 1)
+    x_new_test = transformer.transform(x_new_test)
+    
+    lr = LogisticRegression(max_iter=200)                                   # launching the model
     lr.fit(np.column_stack([x_train, x_new_train]), y_train)
     pred = lr.predict(np.column_stack([x_test, x_new_test]))
     accuracy = sk.metrics.accuracy_score(y_test, pred)          # evaluating the accuracy
     return accuracy,
-
-
-# def evaluate_ls(individual):
-#     """
-#     First apply linear scaling (ls) to the individual
-#     and then evaluate its fitness: MSE (mean squared error)
-#     """
-#     func = toolbox.compile(individual)
-#     Yp = np.array(list(map(func, X1, X2)))
-#
-#     # special cases which cannot be handled by np.linalg.lstsq: (1) individual has only a terminal
-#     #  (2) individual returns the same value for all test cases, like 'x - x + 10'. np.linalg.lstsq will fail in such cases.
-#     # That is, the predicated value for all the examples remains identical, which may happen in the evolution.
-#     if isinstance(Yp, np.ndarray):
-#         Q = np.hstack((np.reshape(Yp, (-1, 1)), np.ones((len(Yp), 1))))
-#         (individual.a, individual.b), residuals, _, _ = np.linalg.lstsq(Q, Y)
-#         # residuals is the sum of squared errors
-#         if residuals.size > 0:
-#             return residuals[0] / len(Y),  # MSE
-#
-#     # regarding the above special cases, the optimal linear scaling w.r.t LSM is just the mean of true target values
-#     individual.a = 0
-#     individual.b = np.mean(Y)
-#     return np.mean((Y - individual.b) ** 2),
 
 
 def calculate_best_model_output(model, *args):
@@ -92,17 +87,19 @@ DATAFRAME_NAME = "phpMD2hR6.csv"
 HEAD = 7
 QUANTITY_OF_GENES = 2
 RNC_LENGTH = 10
-ENABLE_LINEAR_SCALING = False
-POPULATION = 120
-GENERATIONS = 50
+POPULATION = 10
+GENERATIONS = 5
 QUANTITY_OF_BEST_INDIVIDS = 3
 
-dataframe = pd.read_csv(f"datasets\{DATAFRAME_NAME}")   # set dataframe
+dataframe = pd.read_csv(f"datasets/{DATAFRAME_NAME}")   # set dataframe
 print("~~~~~~~~~~~~~~~~~~DATAFRAME~~~~~~~~~~~~~~~~~~")
 print(dataframe)
 
 features, target = dataframe.iloc[:, :-1], dataframe.iloc[:, -1]    # separate the features from the target
-
+start_columns = features.columns.values
+transformer = RobustScaler().fit(features)
+features = transformer.transform(features)
+features = pd.DataFrame(features)
 print("~~~~~~~~~~~~~~~~~~FEATURES~~~~~~~~~~~~~~~~~~")
 print(features)
 print("~~~~~~~~~~~~~~~~~~TARGET~~~~~~~~~~~~~~~~~~")
@@ -145,11 +142,7 @@ toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 # compile utility: which translates an individual into an executable function (Lambda)
 toolbox.register('compile', gep.compile_, pset=pset)
 
-
-if ENABLE_LINEAR_SCALING:
-    pass    # toolbox.register('evaluate', evaluate_ls)
-else:
-    toolbox.register('evaluate', evaluate)
+toolbox.register('evaluate', evaluate)
 
 toolbox.register('select', tools.selTournament, tournsize=3)
 
@@ -181,24 +174,40 @@ hof = tools.HallOfFame(QUANTITY_OF_BEST_INDIVIDS)
 pop, log = gep.gep_simple(pop, toolbox, n_generations=GENERATIONS, n_elites=1,
                           stats=stats, hall_of_fame=hof, verbose=True)
 
+for i, feature in enumerate(features.columns.values):  # rename features
+    features.rename(columns={feature: start_columns[i]}, inplace=True)
+print(features)
+
 
 best_ind = hof[0]
-symplified_best = gep.simplify(best_ind)
 
-if ENABLE_LINEAR_SCALING:
-    symplified_best = best_ind.a * symplified_best + best_ind.b
+SYMBOLIC_FUNCTION_MAP = {
+    operator.and_.__name__: sp.And,
+    operator.or_.__name__: sp.Or,
+    operator.not_.__name__: sp.Not,
+    operator.add.__name__: operator.add,
+    operator.sub.__name__: operator.sub,
+    operator.mul.__name__: operator.mul,
+    operator.neg.__name__: operator.neg,
+    operator.pow.__name__: operator.pow,
+    operator.abs.__name__: operator.abs,
+    operator.floordiv.__name__: operator.floordiv,
+    operator.truediv.__name__: operator.truediv,
+    'protected_div': operator.truediv,
+    'protected_ln': sp.log,
+    'protected_mod': operator.mod,
+    'protected_exp': sp.exp
+}
+
+symplified_best = gep.simplify(best_ind, symbolic_function_map=SYMBOLIC_FUNCTION_MAP)
+
 
 key = '''
 Given training examples of
-
-    X1, X2 POTIONS
-
+    X POTIONS
 we trained a computer using Genetic Algorithms to predict the 
-
     Y = POTION QUALITY
-
 Our logistic regression process found the following equation offers our best prediction:
-
 '''
 
 print('\n', key, '\t', str(symplified_best), '\n\nwhich formally is presented as:\n\n')
@@ -213,6 +222,10 @@ gep.export_expression_tree(best_ind, rename_labels, 'data/numerical_expression_t
 # show the above image here for convenience
 
 Image(filename='data/numerical_expression_tree.png')
+
+for i, feature in enumerate(x_test.columns.values, start=1):  # rename features
+    x_test.rename(columns={feature: f"X{i}"}, inplace=True)
+print(x_test)
 
 predY = calculate_best_model_output(str(symplified_best), *[x_test[f"{x}"] for x in x_test.columns.values])
 

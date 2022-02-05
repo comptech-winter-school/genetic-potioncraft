@@ -6,6 +6,7 @@ import numpy as np
 import sklearn as sk
 from sklearn.linear_model import LogisticRegression
 
+print(np.prod(1, 2, 3))
 RANDOM_SEED = 42
 dataframe = pd.read_csv("datasets\\phpMD2hR6.csv")
 print(dataframe)
