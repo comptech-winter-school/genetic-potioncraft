@@ -28,7 +28,14 @@
 * Применяется для ускорения настройки нейронных сетей.
 
 ## Уcтановка и настройка
-Порядок установки и настройки описан в документе [руководство пользователя](https://github.com/comptech-winter-school/genetic-potioncraft/blob/main/docs/source/user_guide.md)
+### Установка
+Впишите команду: **`pip install geneticpotion #installing package`**.
+### Запуск
+Впишите команду: **`from geneticpotion import potion as p # importing package
+lr = LogisticRegression() #or any other ml model from sklearn.linear_model
+pot = p.Potion(lr) #creating genetic algorithm enhancer
+pot.fit(x_train, y_train, x_test, y_test) #training
+pot.predict(data_x) #predicting`**.
 
 ## Роли в команде
 * Косарецкий Егор - Data Scientist
